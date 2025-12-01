@@ -1,0 +1,41 @@
+import numpy as np
+import matplotlib.pyplot as plt
+class Neuron:
+  def __init__(self, input_size, seed=0):
+    rng=np.random.default_rng(seed)
+    self.w = rng.standard_normal(input_size)
+    self.b = float(rng.standard_normal())
+  def activate(self,z,activation):
+    if activation == 'sigmoid':
+      return 1/(1+np.exp(-z))
+    if activation == 'tanh':
+      return np.tanh(z)
+    if activation == 'relu':
+      return np.maximum(0,z)
+    if activation == 'softmax':
+      e = np.exp(z-np.max(z))
+      return e/e.sum()
+    raise ValueError("Choose: Sigmoid,tanh,relu,softmax")
+  def forward(self,x,activation='sigmoid'):
+    z=x @ self.w + self.b
+    return self.activate(z,activation)
+input_size=5
+X=np.random.randn(10,input_size)
+neuron = Neuron(input_size)
+sig_out=neuron.forward(X[0],'sigmoid')
+tanh_out=neuron.forward(X[0],'tanh')
+relu_out=neuron.forward(X[0],'relu')
+softmax_out = neuron.activate(np.random.randn(5),'softmax')
+x=np.linspace(-6,6,400)
+plt.figure(figsize=(12,4))
+plt.subplot(1,4,1)
+plt.plot(x,1/(1+np.exp(-x)));plt.title('sigmoid');plt.grid(True)
+plt.subplot(1,4,2)
+plt.plot(x,np.tanh(x));plt.title('tanh');plt.grid(True)
+plt.subplot(1,4,3)
+plt.plot(x,np.maximum(0,x));plt.title('relu');plt.grid(True)
+plt.subplot(1,4,4)
+soft=np.exp(x)/ np.sum(np.exp(x))
+plt.plot(x,soft);plt.title('softmax');plt.grid(True)
+plt.tight_layout()
+plt.show()
