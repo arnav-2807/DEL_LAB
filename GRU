@@ -1,0 +1,51 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_squared_error, mean_absolute_error
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import GRU, Dense, Dropout
+import yfinance as yf
+def fetch_stock_data(ticker, start, end):
+    return yf.download(ticker, start=start, end=end, auto_adjust=False)
+data = fetch_stock_data('AAPL', '2010-01-01', '2023-01-01').sort_index()
+if isinstance(data.columns, pd.MultiIndex):
+    data.columns = ['_'.join(map(str, c)).strip() for c in data.columns]
+open_col = next((c for c in data.columns if 'open' in c.lower()), None)
+if open_col is None:
+    raise ValueError(f"'Open' column not found. Available: {list(data.columns)}")
+data = data[[open_col]].rename(columns={open_col: 'Open'})
+dataset = data.values  # numpy array of Open prices
+train_len = int(np.ceil(len(dataset) * 0.8))
+scaler = MinMaxScaler((0, 1))
+scaled = scaler.fit_transform(dataset)
+seq_len = 60
+train = scaled[:train_len]
+x_train = np.array([train[i - seq_len:i, 0] for i in range(seq_len, len(train))])
+y_train = np.array([train[i, 0] for i in range(seq_len, len(train))])
+x_train = x_train.reshape(x_train.shape[0], x_train.shape[1], 1)
+model = Sequential([
+    GRU(50, return_sequences=True, input_shape=(seq_len, 1)),
+    Dropout(0.2),GRU(50, return_sequences=False),
+    Dropout(0.2),Dense(25),Dense(1)])
+model.compile(optimizer='adam', loss='mean_squared_error')
+model.fit(x_train, y_train, batch_size=1, epochs=1, verbose=1)
+test_data = scaled[train_len - seq_len:]
+x_test = np.array([test_data[i - seq_len:i, 0] for i in range(seq_len, len(test_data))])
+x_test = x_test.reshape(x_test.shape[0], x_test.shape[1], 1)
+preds = model.predict(x_test)
+preds = scaler.inverse_transform(preds)              
+y_test = dataset[train_len:]                         
+rmse = np.sqrt(mean_squared_error(y_test, preds))
+mae  = mean_absolute_error(y_test, preds)
+print(f'RMSE: {rmse:.4f}  MAE: {mae:.4f}')
+train_df = data.iloc[:train_len]
+valid_df = data.iloc[train_len:].copy()
+valid_df['Predictions'] = preds.flatten()
+plt.figure(figsize=(14,6))
+plt.plot(train_df['Open'], label='Train')
+plt.plot(valid_df['Open'],  label='Validation')
+plt.plot(valid_df['Predictions'], label='Predictions')
+plt.xlabel('Date'); plt.ylabel('Open Price ($)'); plt.title('GRU Stock Prediction')
+plt.legend(); plt.grid(True); plt.show()
+print(valid_df.head())
