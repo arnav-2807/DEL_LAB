@@ -1,0 +1,49 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from tensorflow.keras import Sequential
+from tensorflow.keras.layers import Input, Dense
+from tensorflow.keras.optimizers import SGD
+X, y = load_iris(return_X_y=True)
+y = OneHotEncoder(sparse_output=False).fit_transform(y.reshape(-1,1))  
+Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.2, random_state=42)
+scaler = StandardScaler().fit(Xtr)
+Xtr, Xte = scaler.transform(Xtr), scaler.transform(Xte)
+def create_model():
+    m = Sequential([Input(shape=(Xtr.shape[1],)),
+                    Dense(64, activation='relu'),
+                    Dense(32, activation='relu'),
+                    Dense(3, activation='softmax')])
+    return m
+gd = create_model()
+gd.compile(optimizer=SGD(learning_rate=0.01), loss='categorical_crossentropy', metrics=['accuracy'])
+gd_hist = gd.fit(Xtr, ytr, epochs=50, batch_size=len(Xtr), validation_data=(Xte, yte), verbose=0)
+# Note: batch_size=len(Xtr) approximates full-batch gradient descent per epoch.
+sgd = create_model()
+sgd.compile(optimizer=SGD(learning_rate=0.01), loss='categorical_crossentropy', metrics=['accuracy'])
+sgd_hist = sgd.fit(Xtr, ytr, epochs=50, batch_size=1, validation_data=(Xte, yte), verbose=0)
+fig, axs = plt.subplots(2, 2, figsize=(10,8))
+axs[0,0].plot(gd_hist.history['loss'], label='Train (GD)')
+axs[0,0].plot(gd_hist.history['val_loss'], '--', label='Val (GD)')
+axs[0,0].set_title('Loss (GD)')
+axs[0,0].legend()
+axs[0,0].grid(True)
+axs[0,1].plot(sgd_hist.history['loss'], label='Train (SGD)')
+axs[0,1].plot(sgd_hist.history['val_loss'], '--', label='Val (SGD)')
+axs[0,1].set_title('Loss (SGD)')
+axs[0,1].legend()
+axs[0,1].grid(True)
+axs[1,0].plot(gd_hist.history['accuracy'], label='Train (GD)')
+axs[1,0].plot(gd_hist.history['val_accuracy'], '--', label='Val (GD)')
+axs[1,0].set_title('Accuracy (GD)')
+axs[1,0].legend()
+axs[1,0].grid(True)
+axs[1,1].plot(sgd_hist.history['accuracy'], label='Train (SGD)')
+axs[1,1].plot(sgd_hist.history['val_accuracy'], '--', label='Val (SGD)')
+axs[1,1].set_title('Accuracy (SGD)')
+axs[1,1].legend()
+axs[1,1].grid(True)
+plt.tight_layout()
+plt.show()
